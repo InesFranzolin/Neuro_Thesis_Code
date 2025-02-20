@@ -1,0 +1,217 @@
+---
+title: "brain_markdown"
+author: "Ines Franzolin"
+date: "2024-12-02"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+loading of the data
+```{r}
+WD <- "/Users/inesfranzolin/Desktop/UNIGE/BLL/Master_thesis/data_brain_analysis/"
+setwd(WD)
+brain_analyses <- read.csv("final_brain.csv")
+```
+
+libraries
+```{r}
+library(pacman)
+p_load(gamm4, Hmisc, corrplot, tidyr)
+```
+
+descriptive of the variables used 
+```{r}
+brain_df = data.frame(brain_analyses[, c("Age", "multilingual_score_comprehension", "multilingual_score_speaking", "Hand_index", "number_of_languages",
+                                  "eTIV.x", "left_parstriangularis", "left_ATL", "lh_G_pariet_inf.Supramar_volume", 
+                                  "lh_precuneus_volume", "rh_precuneus_volume", "Left.Hippocampus", "Right.Hippocampus",
+                                  "lh_parahippocampal_volume", "rh_parahippocampal_volume", "lh_entorhinal_volume",
+                                  "rh_entorhinal_volume", "Left.Caudate", "left_parsopercularis",
+                                  "left_dorsolateralPFC", "left_SMA", "lh_caudalanteriorcingulate_volume",
+                                  "rh_caudalanteriorcingulate_volume")])
+brain_df$sex <- as.factor(brain_analyses$Sex)
+
+sd(brain_df$Age)
+sd(brain_df$number_of_languages)
+summary(brain_df)
+```
+
+inhibition network brain area's volume
+```{r}
+#dorsolateral prefrontal cortex, volume from Brainnetome Atlas
+brain_analyses$left_dorsolateralPFC <- rowSums(brain_analyses[, c("lh_A9l_L_volume", "lh_A9m_L_volume", "lh_46d_L_volume", 
+                                                                  "lh_46v_L_volume", "lh_A46_L_volume")])
+#SMA, volume from Brainnetome Atlas
+brain_analyses$left_SMA <- rowSums(brain_analyses[, c("lh_A6dl_L_volume", "lh_A6m_L_volume", "lh_A6vl_L_volume")])
+
+#pars opercularis, volume from Brainnetome Atlas
+brain_analyses$left_parsopercularis <- rowSums(brain_analyses[, c("lh_A44d_L_volume", "lh_A44op_L_volume", "lh_A44v_L_volume")])
+```
+
+scaling and data frame creation for the inhibition network
+```{r}
+#scaling inhibition variables
+scaling_function <- function(x) {
+  scale(x)}
+
+to_scale_inh = brain_analyses[, c("Age", "multilingual_score_speaking", "Hand_index", 
+                                  "eTIV.x", "Left.Caudate", "left_parsopercularis",
+                                  "left_dorsolateralPFC", "left_SMA", "lh_caudalanteriorcingulate_volume",
+                                  "rh_caudalanteriorcingulate_volume")]
+
+scaled_inh <- scaling_function(to_scale_inh)
+
+#data frame creation inhibition network
+inhibition_df <- data.frame(scaled_inh)
+colnames(inhibition_df)= c("age", "multilingual_score_speaking", "handedness", "volume_total", 
+                                                      "left_caudate", "left_parsopercularis", "left_DLPFC", "left_SMA", 
+                                                      "left_ACC", "right_ACC")
+
+
+inhibition_df$sex <- as.factor(brain_analyses$Sex)
+inhibition_df$participant_ID <- as.factor(brain_analyses$participant_id)
+#convert to long format
+inhibition_df_long <- pivot_longer(inhibition_df, cols = c("left_caudate", "left_parsopercularis", "left_DLPFC",
+                                                           "left_SMA", "left_ACC", "right_ACC"),
+                                     names_to = 'brain_area_name', values_to = 'brain_area_volume')
+
+inhibition_df_long$brain_area_name <- as.factor(inhibition_df_long$brain_area_name)
+
+brain_areas_inh <- levels(inhibition_df_long$brain_area_name)
+```
+
+GAMM inhibition network
+```{r}
+inhibition_gam <- gamm4(brain_area_volume ~ s(multilingual_score_speaking, by= brain_area_name) + volume_total + handedness + age + sex, 
+      random = ~(1|participant_ID), data = inhibition_df_long, family = gaussian() ,REML = T) 
+
+summary_inhibition <- summary(inhibition_gam$gam)
+summary(inhibition_gam$gam)
+```
+
+Plots: relationship between multilingualism speaking and brain areas related to inhibition network
+```{r}
+for (i in 1:length(brain_areas_inh)) {
+  plot(inhibition_gam$gam, select = i, residuals = TRUE, shade = TRUE,
+       shade.col = 'deeppink3', ylab = paste(brain_areas_inh[i], "volume"), 
+       xlab = "multilingual score speaking")
+}
+```
+
+
+declarative network brain area's volume
+```{r}
+#pars triangularis, volume from Brainnetome Atlas
+brain_analyses$left_parstriangularis <- rowSums(brain_analyses[, c("lh_A45c_L_volume", "lh_A45r_L_volume")])
+
+#Anterior temporal lobe, volume from Brainnetome Atlas
+brain_analyses$left_ATL <- rowSums(brain_analyses[, c("lh_A38m_L_volume", "lh_A38l_L_volume", "lh_A21r_L_volume", "lh_A20r_L_volume")])
+```
+
+
+scaling and data frame creation for the declarative memory network
+```{r}
+to_scale_dec = brain_analyses[, c("Age", "multilingual_score_comprehension", "Hand_index", 
+                                  "eTIV.x", "left_parstriangularis", "left_ATL", "lh_G_pariet_inf.Supramar_volume", 
+                                  "lh_precuneus_volume", "rh_precuneus_volume", "Left.Hippocampus", "Right.Hippocampus",
+                                  "lh_parahippocampal_volume", "rh_parahippocampal_volume", "lh_entorhinal_volume",
+                                  "rh_entorhinal_volume")]
+
+scaled_dec <- scaling_function(to_scale_dec)
+
+#data frame creation declarative
+declarative_df <- data.frame(scaled_dec)
+colnames(declarative_df) = c("age", "multilingual_score_comprehension", "handedness", "volume_total", 
+                             "left_parstriangularis", "left_ATL", "left_supramarginal", "left_precuneus",
+                             "right_precuneus", "left_hippocampus", "right_hippocampus", "left_parahippocampus",
+                             "right_parahippocampus", "left_enthorinal", "right_enthorinal")
+
+declarative_df$sex <- as.factor(brain_analyses$Sex)
+declarative_df$participant_ID <- as.factor(brain_analyses$participant_id)
+
+#convert to long format 
+declarative_df_long <- pivot_longer(declarative_df, cols = c("left_parstriangularis", "left_ATL", "left_supramarginal", "left_precuneus",
+                                                             "right_precuneus", "left_hippocampus", "right_hippocampus", "left_parahippocampus",
+                                                             "right_parahippocampus", "left_enthorinal", "right_enthorinal"), names_to = 'brain_area_name', values_to = 'brain_area_volume')
+
+declarative_df_long$brain_area_name <- as.factor(declarative_df_long$brain_area_name)
+
+brain_areas_dec <- levels(declarative_df_long$brain_area_name)
+```
+
+GAMM declarative memory network
+```{r}
+declarative_gam <- gamm4(brain_area_volume ~ s(multilingual_score_comprehension, by= brain_area_name) + volume_total + handedness + age + sex, 
+                         random = ~(1|participant_ID), data = declarative_df_long, family = gaussian() ,REML = T)
+
+summary_declarative <- summary(declarative_gam$gam)
+summary(declarative_gam$gam)
+```
+
+Plots: relationship between multilingualism comprehension and brain areas related to declarative memory network
+```{r}
+for (i in 1:length(brain_areas_dec)) {
+  plot(declarative_gam$gam, select = i, residuals = TRUE, shade = TRUE,
+       shade.col = 'deeppink3', ylab = paste(brain_areas_dec[i], "volume"), 
+       xlab = "multilingual score comprehension")
+}
+```
+
+Correlations between areas from inhibition and declarative memory network
+```{r}
+#dataframe creation
+corr_inhdec <- data.frame(brain_analyses$lh_precuneus_volume, brain_analyses$rh_precuneus_volume,
+                          brain_analyses$Left.Hippocampus,brain_analyses$Right.Hippocampus,
+                          brain_analyses$lh_entorhinal_volume, brain_analyses$rh_entorhinal_volume,
+                          brain_analyses$lh_parahippocampal_volume, brain_analyses$rh_parahippocampal_volume,
+                          brain_analyses$left_parstriangularis,
+                          brain_analyses$left_ATL,
+                          brain_analyses$lh_G_pariet_inf.Supramar_volume,
+                          brain_analyses$Left.Caudate, 
+                          brain_analyses$left_parsopercularis,
+                          brain_analyses$left_dorsolateralPFC, 
+                          brain_analyses$lh_caudalanteriorcingulate_volume,
+                          brain_analyses$rh_caudalanteriorcingulate_volume,
+                          brain_analyses$left_SMA)
+
+names(corr_inhdec) <- c(  "L PCun", "R PCun", "L HI", "R HI",
+  "L Ent", "R Ent", "L PHG", "R PHG",
+  "L IFGTr", "L ATL", "L SMG", "L Cd",
+  "L IFGOp", "L DLPFC", "L ACC", "R ACC", "L SMA")
+```
+
+```{r}
+#correlation matrice
+corr_inhdec <- as.matrix(corr_inhdec)
+
+matrice_inhdec <- rcorr(corr_inhdec, type = c('spearman'))
+rho_inhdec = matrice_inhdec$r 
+p_values_inhdec = matrice_inhdec$P 
+
+#Benjamin Hochsberg correction
+p_values_inhdec_vector <- as.vector(p_values_inhdec)
+corrected_p_inhdec_vector = p.adjust(p_values_inhdec_vector, method = c('BH'), n = length(p_values_inhdec_vector))
+corrected_p_inhdec <- matrix(corrected_p_inhdec_vector, nrow = nrow(p_values_inhdec),
+                          dimnames = list(rownames(p_values_inhdec), colnames(p_values_inhdec))) 
+diag(corrected_p_inhdec) <- 1
+```
+
+Plot: correlations between brain areas from inhibition and declarative network
+```{r}
+inhdec_corr_plot <- corrplot(rho_inhdec, method= 'circle', type = 'lower', order = 'original', 
+                          p.mat = corrected_p_inhdec, sig.level = 0.05, insig = 'blank', 
+                          addCoef.col = 'black', number.cex = 0.8, diag = F)
+```
+
+
+rho and p-values
+```{r}
+#rho
+rho_inhdec
+
+#p-values
+corrected_p_inhdec
+```
+
+
+
