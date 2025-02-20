@@ -2,10 +2,6 @@
 title: "Brain Atlas"
 author: "Ines Franzolin"
 date: "2024-11-07"
-output:
-  word_document: default
-  html_document: default
-  pdf_document: default
 ---
 Libraries load
 ```{r}
@@ -25,9 +21,6 @@ ggseg(atlas = desterieux,
       hemisphere = "left") + 
   scale_fill_brain2(palette = desterieux$palette[data_desterieux$region]) + theme(legend.position = 'bottom')
 ```
-
-`
-
 
 Aseg Atlas
 ```{r}
@@ -70,5 +63,3 @@ ggseg(atlas = dk,
       colour = "black",      
       view = 'medial') + scale_fill_brain2(palette = dk$palette[data_desikan$region]) + theme(legend.position = 'bottom')
 ```
-
-`
