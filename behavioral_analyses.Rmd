@@ -2,17 +2,8 @@
 title: "behavioral analyses"
 author: "Ines Franzolin"
 date: "2024-12-05"
-output:
-  word_document: default
-  html_document: default
----
-loading of the data
-```{r}
-WD_beha <- "/Users/inesfranzolin/Desktop/UNIGE/BLL/Master_thesis/data_brain_analysis/"
-setwd(WD_beha)
-beha_df <-read.csv("beha_Data.csv")
-```
 
+---
 libraries
 ```{r}
 library(pacman)
