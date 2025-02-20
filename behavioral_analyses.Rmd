@@ -1,0 +1,192 @@
+---
+title: "behavioral analyses"
+author: "Ines Franzolin"
+date: "2024-12-05"
+output:
+  word_document: default
+  html_document: default
+---
+loading of the data
+```{r}
+WD_beha <- "/Users/inesfranzolin/Desktop/UNIGE/BLL/Master_thesis/data_brain_analysis/"
+setwd(WD_beha)
+beha_df <-read.csv("beha_Data.csv")
+```
+
+libraries
+```{r}
+library(pacman)
+p_load(ggplot2, RColorBrewer, gamm4, tidyr, mgcv, Hmisc, corrplot,)
+```
+
+descriptive of the variables used 
+```{r}
+behavioral_df = data.frame(beha_df[, c("Age", "multilingual_score_comprehension", "multilingual_score_speaking", "number_of_languages", "D2_correct", "M5_correct", "meanRT_executive")])
+behavioral_df$sex <- as.factor(beha_df$Gender)
+
+sd(behavioral_df$Age)
+sd(behavioral_df$number_of_languages)
+summary(behavioral_df)
+```
+
+behavioral scores plots
+```{r}
+ggplot(beha_df, aes(x = meanRT_executive))+
+  ggtitle("Inhibition score distribution")+
+  xlab("Inhibition")+
+  geom_density(color ="chartreuse3")
+
+ggplot(beha_df, aes(x = D2_correct))+
+  ggtitle("Visual declarative memory distribution")+
+  xlab("Visual declarative memory")+
+  geom_bar(fill="chartreuse3")
+
+ggplot(beha_df, aes(x = M5_correct))+
+  ggtitle("Semantic declarative memory distribution")+
+  xlab("Semantic declarative memory")+
+  geom_bar(fill="chartreuse3") 
+
+```
+
+plots: number of languages x speaking/comprehension score
+```{r}
+#palette preparation
+my_color_set1 <- brewer.pal(12, "Paired")
+my_color_set1 <- my_color_set1[-11]
+my_color_set1[1] <- "#ADD8E6"
+my_color_set1[11] <-"8B00FF"
+
+#number of language and multilingual score speaking
+plot_multi_sample <- ggplot(data = beha_df, aes(x = multilingual_score_speaking, y = number_of_languages)) +
+  geom_point(aes(color = factor(number_of_languages)), size = 3.5) +
+  scale_color_manual(values =  my_color_set1[1:12], name ="Number of languages") +
+  labs(x = "Multilingual score speaking", y ="Number of languages")
+plot_multi_sample + theme(
+  plot.title = element_text(size = 18),      
+  axis.title = element_text(size = 12),      
+  axis.text = element_text(size = 12),       
+  legend.title = element_text(size = 12),    
+  legend.text = element_text(size = 12)      
+)
+
+#number of language and multilingual score comprehension
+plot_multi_sample <- ggplot(data = beha_df, aes(x = multilingual_score_comprehension, y = number_of_languages)) +
+  geom_point(aes(color = factor(number_of_languages)), size = 3.5) +
+  scale_color_manual(values =  my_color_set1[1:12], name ="Number of languages") +
+  labs(x = "Multilingual score comprehension", y ="Number of languages")
+plot_multi_sample + theme(
+  plot.title = element_text(size = 18),      
+  axis.title = element_text(size = 12),      
+  axis.text = element_text(size = 12),       
+  legend.title = element_text(size = 12),    
+  legend.text = element_text(size = 12)      
+)
+```
+
+```{r}
+
+```
+
+
+data preprocessing
+```{r}
+#scaling function
+scaling_function <- function(to_scale_mdec) {
+  scale(to_scale_mdec)}
+
+to_scale_mdec = beha_df[, c("Age", "multilingual_score_comprehension",  "D2_correct", "M5_correct")]
+
+scaled_mdec <- scaling_function(to_scale_mdec)
+
+#data frame creation declarative memory
+mdeclarative_df <- data.frame(scaled_mdec)
+colnames(mdeclarative_df)= c("age", "multilingual_score_comprehension", "visual_component", "semantic_component")
+
+mdeclarative_df$sex <- as.factor(beha_df$Gender)
+mdeclarative_df$participant_ID <- as.factor(beha_df$ParticipantID)
+
+#convert to long format
+mdeclarative_df_long <- pivot_longer(mdeclarative_df, cols = c("visual_component", "semantic_component"),
+                                   names_to = 'declarative_memories_component', values_to = 'declarative_memories_scores')
+
+mdeclarative_df_long$declarative_memories_component <- as.factor(mdeclarative_df_long$declarative_memories_component)
+
+#data frame creation inhibition
+to_scale_inhi = beha_df[, c("Age", "multilingual_score_speaking")]
+scaled_inhi <- scaling_function(to_scale_inhi)
+
+inhi_df <- data.frame(scaled_inhi)
+colnames(inhi_df)= c("age", "multilingual_score_speaking")
+
+
+inhi_df$sex <- as.factor(beha_df$Gender)
+inhi_df$participant_ID <- as.factor(beha_df$ParticipantID)
+inhi_df$reversed_inhibition_score <- beha_df$reversed_z_score_executive #scaled and then reversed
+```
+
+GAM inhibition
+```{r}
+gam_executive <- gam(reversed_inhibition_score ~ s(multilingual_score_speaking) + age + sex, data = inhi_df, method = "REML")
+summary(gam_executive)   
+```
+Plot GAM inhibition
+```{r}
+plot.gam(gam_executive, residuals = T, select = 1, shade=TRUE, shade.col= 5, ylab= "inhibition score", pch = 20)
+```
+
+
+GAMM declarative memory
+```{r}
+mdeclarative_gam <- gamm4( declarative_memories_scores ~ s(multilingual_score_comprehension, by= declarative_memories_component) + age + sex, 
+                         random = ~(1|participant_ID), data = mdeclarative_df_long, family = gaussian() ,REML = T)
+
+summary_mdeclarative <- summary(mdeclarative_gam$gam)
+summary_mdeclarative
+```
+Plots GAMM declarative memory
+```{r}
+declarative_component <- levels(mdeclarative_df_long$declarative_memories_component)
+
+for (i in 1:length(declarative_component)) {
+  plot(mdeclarative_gam$gam, select = i, residuals = TRUE, shade = TRUE,
+       shade.col = 5, ylab = paste(declarative_component[i]), 
+       xlab = "multilingual score comprehension")
+}
+```
+
+
+Correlation preprocessing
+```{r}
+#correlation inhibition and declarative memory scores
+inhdec_corr <- data.frame(beha_df$z_score_M5, beha_df$z_score_D2, beha_df$reversed_z_score_executive) 
+names(inhdec_corr) <- c("semantic", "visual", "inhibition") 
+
+inhdec_corr <- as.matrix(inhdec_corr)
+matrice_inhdec <- rcorr(inhdec_corr, type = "spearman")
+rho_inhdec <- matrice_inhdec$r
+p_values_inhdec <- matrice_inhdec$P
+
+
+#Benjamin-Hochsberg correction on inhibition score and declarative memory scores
+p_values_inhdec_vector <-as.vector(p_values_inhdec)
+corrected_p_inhdec_vector = p.adjust(p_values_inhdec_vector, method = c('BH'), n = length(p_values_inhdec_vector))
+corrected_p_inhdec <- matrix(corrected_p_inhdec_vector, nrow = nrow(p_values_inhdec), dimnames = list(rownames(p_values_inhdec), colnames(p_values_inhdec)))
+diag(corrected_p_inhdec) <- 1
+```
+
+Plots correlation behavioral scores
+```{r}
+inhdec_corr_plot <- corrplot(rho_inhdec, method= 'circle', type = 'lower', order = 'original', 
+                             p.mat = corrected_p_inhdec, sig.level = 0.05, insig = 'blank', 
+                             addCoef.col = 'black', number.cex = 0.8, diag = F)
+```
+
+rho and p-values
+```{r}
+#rho
+rho_inhdec
+
+#p-values
+corrected_p_inhdec
+```
+
