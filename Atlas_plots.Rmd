@@ -1,0 +1,74 @@
+---
+title: "Brain Atlas"
+author: "Ines Franzolin"
+date: "2024-11-07"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+Libraries load
+```{r}
+library(pacman)
+p_load(ggplot2, ggseg, ggsegBrainnetome,ggsegDesterieux)
+```
+
+Destrieux Atlas
+```{r}
+data_desterieux <- data.frame(region = brain_regions(desterieux)[26])
+
+ggseg(atlas = desterieux, 
+      mapping = aes(fill = region), 
+      show.legend = TRUE, 
+      colour = "black", 
+      view = 'lateral',
+      hemisphere = "left") + 
+  scale_fill_brain2(palette = desterieux$palette[data_desterieux$region]) + theme(legend.position = 'bottom')
+```
+
+`
+
+
+Aseg Atlas
+```{r}
+aseg$data$caudate_hemi <- ifelse(aseg$data$region == "caudate" & aseg$data$hemi == "left", "left_caudate",
+                                 ifelse(aseg$data$region == "caudate" & aseg$data$hemi == "right", "right_caudate",
+                                        aseg$data$region))
+
+ggseg(atlas = aseg, 
+      mapping = aes(fill = caudate_hemi), 
+      show.legend = TRUE, 
+      colour = "black", 
+      position = "stacked", 
+      view = 'coronal') +
+  scale_fill_manual(values = c('left_caudate' = unname(aseg$palette['caudate']), 
+                               'hippocampus' = unname(aseg$palette['hippocampus']))) +
+  theme(legend.position = 'bottom') +
+  labs(fill = "region") 
+```
+
+
+Brainnetome Atlas
+```{r}
+data_brainnetome <- data.frame(region = brain_regions(brainnetome)[c(51, 52, 39, 40, 17, 20, 48, 49, 50, 76, 77, 74, 75, 53, 63, 64, 65)])
+
+ggseg(atlas = brainnetome, 
+      mapping = aes(fill = region),
+      show.legend = T,  
+      colour = "black",      
+      #position = "stacked",
+      hemisphere = "left") + scale_fill_brain2(palette = brainnetome$palette[data_brainnetome$region]) + theme(legend.position = 'bottom')
+```
+
+Desikan Atlas
+```{r}
+data_desikan <- data.frame(region = brain_regions(dk)[c(6, 19, 27, 2)])
+
+ggseg(atlas = dk, 
+      mapping = aes(fill = region),
+      show.legend = T,    
+      colour = "black",      
+      view = 'medial') + scale_fill_brain2(palette = dk$palette[data_desikan$region]) + theme(legend.position = 'bottom')
+```
+
+`
