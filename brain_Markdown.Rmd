@@ -2,17 +2,8 @@
 title: "brain_markdown"
 author: "Ines Franzolin"
 date: "2024-12-02"
-output:
-  word_document: default
-  pdf_document: default
-  html_document: default
+
 ---
-loading of the data
-```{r}
-WD <- "/Users/inesfranzolin/Desktop/UNIGE/BLL/Master_thesis/data_brain_analysis/"
-setwd(WD)
-brain_analyses <- read.csv("final_brain.csv")
-```
 
 libraries
 ```{r}
